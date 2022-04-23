@@ -133,7 +133,7 @@ const Main = () => {
         <div>
           <StyledHeadlinePrimary>My Hacker Stories</StyledHeadlinePrimary>
           <SearchForm
-            onHandleSearch={handleSeacdrch}
+            onHandleSearch={handleSearch}
             onHandleSearchSubmit={handleSearchSubmit}
             searchValue={searchValue}
           />
