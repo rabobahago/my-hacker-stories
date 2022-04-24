@@ -3,6 +3,8 @@ import styled from "styled-components";
 import axios from "axios";
 import List from "./List";
 import SearchForm from "./SearchForm";
+import { Circles } from "react-loader-spinner";
+
 export const initialState = [
   {
     title: "React",
@@ -128,7 +130,10 @@ const Main = () => {
     <StyledContainer>
       {stories.isError && <p>Something went wrong</p>}
       {stories.isLoading ? (
-        <h3>Loading.....</h3>
+        // <h3>Loading.....</h3>
+        <StyledLoader>
+          <Circles color="#00BFFF" height={120} width={120} />
+        </StyledLoader>
       ) : (
         <div>
           <StyledHeadlinePrimary>My Hacker Stories</StyledHeadlinePrimary>
@@ -164,4 +169,9 @@ const StyledHeadlinePrimary = styled.h1`
   font-size: 48px;
   font-weight: 300;
   letter-spacing: 2px;
+`;
+const StyledLoader = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: center;
 `;
