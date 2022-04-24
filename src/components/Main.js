@@ -2,6 +2,7 @@ import React, { useEffect } from "react";
 import styled from "styled-components";
 import axios from "axios";
 import List from "./List";
+import LastSearches from "./LastSearches";
 import SearchForm from "./SearchForm";
 import { Circles } from "react-loader-spinner";
 
@@ -37,7 +38,8 @@ const reducerStories = (state, action) => {
         ...state,
         isLoading: false,
         isError: false,
-        data: action.payload,
+        data: action.payload.list,
+        page: action.payload.page,
       };
     case "STORIES_FETCH_FAILURE":
       return {
@@ -57,6 +59,42 @@ const reducerStories = (state, action) => {
   }
 };
 const API_ENDPOINT = "https://hn.algolia.com/api/v1/search?query=";
+
+// const getUrl = (searchTerm) => `${API_ENDPOINT}${searchTerm}`;
+const API_BASE = "https://hn.algolia.com/api/v1";
+const API_SEARCH = "/search";
+const PARAM_SEARCH = "query=";
+const PARAM_PAGE = "page=";
+
+const getUrl = (searchTerm, page) =>
+  `${API_BASE}${API_SEARCH}?${PARAM_SEARCH}${searchTerm}&${PARAM_PAGE}${page}`;
+
+// const extractSearchTerm = (url) => url.replace(API_ENDPOINT, "");
+// const extractSearchTerm = (url) =>
+//   url.substring(url.lastIndexOf("?") + 1, url.lastIndexOf("&"));
+const extractSearchTerm = (url) =>
+  url
+    .substring(url.lastIndexOf("?") + 1, url.lastIndexOf("&"))
+    .replace(PARAM_SEARCH, "");
+const getLastSearches = (urls) =>
+  urls
+    .reduce((result, url, index) => {
+      const searchTerm = extractSearchTerm(url);
+
+      if (index === 0) {
+        return result.concat(searchTerm);
+      }
+
+      const previousSearchTerm = result[result.length - 1];
+
+      if (searchTerm === previousSearchTerm) {
+        return result;
+      } else {
+        return result.concat(searchTerm);
+      }
+    }, [])
+    .slice(-6)
+    .slice(0, -1);
 const useSemiPesistentHook = (key, initialState) => {
   const [searchValue, setSearchValue] = React.useState(
     localStorage.getItem(key) || initialState
@@ -74,9 +112,11 @@ const useSemiPesistentHook = (key, initialState) => {
 const Main = () => {
   const [searchValue, setSearchValue] = useSemiPesistentHook("search", "react");
   // const [stories, setStories] = React.useState([]);
-  const [url, setUrl] = React.useState(`${API_ENDPOINT}${searchValue}`);
+  // const [urls, setUrls] = React.useState([getUrl(searchValue)]);
+  const [urls, setUrls] = React.useState([getUrl(searchValue, 0)]);
   const [stories, dispatchStories] = React.useReducer(reducerStories, {
     data: [],
+    page: 0,
     isLoading: false,
     isError: false,
   });
@@ -91,15 +131,15 @@ const Main = () => {
     // const {
     //   data: { stories },
     // } = await getAsyncStories();
-    const result = await axios.get(url);
+    const result = await axios.get(urls);
     // const result = await response.json();
     dispatchStories({
       type: "STORIES_FETCH_SUCCESS",
-      payload: result.data.hits,
+      payload: { list: result.data.hits, page: result.data.page },
     });
     // setStories(stories);
     // setIsLoading(false);
-  }, [url]);
+  }, [urls]);
   React.useEffect(() => {
     try {
       fetchData();
@@ -115,10 +155,11 @@ const Main = () => {
     dispatchStories({ type: "REMOVE_STORY", payload: item });
   };
   const handleSearchSubmit = (e) => {
-    setUrl(`${API_ENDPOINT}${searchValue}`);
+    setUrls(`${API_ENDPOINT}${searchValue}`);
+    handleSearch(searchValue, 0);
     e.preventDefault();
   };
-  const handleSearch = (e) => {
+  const handleSearchInput = (e) => {
     setSearchValue(e.target.value);
   };
   const searchedStories = stories.data.filter((story) => {
@@ -126,6 +167,22 @@ const Main = () => {
       .toLocaleLowerCase()
       .includes(searchValue.toLocaleLowerCase());
   });
+  const handleLastSearch = (searchTerm) => {
+    setSearchValue(searchTerm);
+    handleSearch(searchTerm, 0);
+  };
+
+  const handleSearch = (searchTerm, page) => {
+    const url = getUrl(searchTerm, page);
+    setUrls(urls.concat(url));
+  };
+
+  const lastSearches = getLastSearches(urls);
+  const handleMore = () => {
+    const lastUrl = urls[urls.length - 1];
+    const searchValue = extractSearchTerm(lastUrl);
+    handleSearch(searchValue, stories.page + 1);
+  };
   return (
     <StyledContainer>
       {stories.isError && <p>Something went wrong</p>}
@@ -138,11 +195,21 @@ const Main = () => {
         <div>
           <StyledHeadlinePrimary>My Hacker Stories</StyledHeadlinePrimary>
           <SearchForm
-            onHandleSearch={handleSearch}
+            onHandleSearch={handleSearchInput}
             onHandleSearchSubmit={handleSearchSubmit}
             searchValue={searchValue}
           />
+          <LastSearches
+            lastSearches={lastSearches}
+            onLastSearch={handleLastSearch}
+          />
           <List list={searchedStories} onRemoveItem={handleRemoveItem} />
+          {/* <button type="button" onClick={handleMore}>
+            More
+          </button> */}
+          <StyledButtonLarge type="button" onClick={handleMore}>
+            More
+          </StyledButtonLarge>
         </div>
       )}
       {/* <ul>
@@ -174,4 +241,19 @@ const StyledLoader = styled.div`
   display: flex;
   align-items: center;
   justify-content: center;
+`;
+const StyledButton = styled.button`
+  background: transparent;
+  border: 1px solid #171212;
+  padding: 5px;
+  cursor: pointer;
+  transition: all 0.1s ease-in;
+  &:hover {
+    background: #171212;
+    color: #ffffff;
+  }
+`;
+
+const StyledButtonLarge = styled(StyledButton)`
+  padding: 10px;
 `;
